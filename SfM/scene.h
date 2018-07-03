@@ -8,7 +8,9 @@
 #include <opencv2/xfeatures2d.hpp>
 
 
+#include <Eigen/Core>
 #include <Eigen/Eigen>
+#include <opencv2/core/eigen.hpp>
 
 
 class View;
@@ -29,11 +31,45 @@ public:
 	void init();
 
 	void detect_and_match();
+	
+	void clean();
+
+	void generate_track();
+	
+
+	typedef std::pair<int, int> CorrespondenceIndex;
+	typedef std::vector<CorrespondenceIndex> CorrespondenceIndices;
+	struct TwoViewMatching
+	{
+		int view_id1;
+		int view_id2;
+		CorrespondenceIndices matches;
+		
+	};
+	typedef std::vector<TwoViewMatching> PairwiseMatching;
+
+	struct Feature
+	{
+		int view_id;
+		int feature_id;
+	};
+	typedef std::vector<Feature> FeatureList;
+
+	struct Track
+	{
+		FeatureList feature_list;
+	};
+	typedef std::vector<Track> TrackList;
+
+private:
+	void two_view_matching(View const& m_view1, View const& m_view2);
 
 private:
 	std::string base_dir;
 	std::string features_dir;
 	std::vector<View> view_list;
+
+	PairwiseMatching matching_result;
 
 };
 
@@ -41,13 +77,13 @@ private:
 class View
 {
 public:
-	typedef std::shared_ptr<cv::Mat> image_ptr;
-
+	typedef std::shared_ptr<cv::Mat> ImagePtr;
+	typedef std::vector<cv::KeyPoint> Keypoints;
 
 	struct ImageProxy
 	{
 		std::string img_path;
-		image_ptr image;
+		ImagePtr image;
 		int32_t width = 0;
 		int32_t height = 0;
 		int32_t channels = 0;
@@ -55,13 +91,7 @@ public:
 		ImageProxy(std::string const& m_img_path) :img_path(m_img_path) {}
 
 	};
-	struct Feature
-	{
-		Eigen::VectorXf descriptor;
-		float x;
-		float y;
 
-	};
 
 
 	View(std::string const& m_base_dir, std::string const& m_img_path, int m_view_id)
@@ -74,11 +104,25 @@ public:
 
 	void detect_features(std::string const& m_features_dir);
 
+	void clean();
+
+	cv::Mat const& get_descriptor() const;
+	cv::Mat get_descriptor();
+	Keypoints const& get_keypoints() const;
+	Keypoints get_keypoints();
+	ImagePtr const& get_image() const;
+	ImagePtr get_image();
+
+	int get_view_id();
+	int const& get_view_id() const;
+
 private:
 	int view_id;
 	std::string base_dir;
-
 	ImageProxy image_proxy;
-	std::vector<Feature> feature_list;
+
+
+	cv::Mat descriptor;
+	Keypoints keypoints;
 };
 
