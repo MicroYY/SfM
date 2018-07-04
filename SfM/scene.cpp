@@ -67,7 +67,55 @@ void Scene::clean()
 
 void Scene::generate_track()
 {
+	for (int i = 0; i < this->view_list.size(); i++)
+	{
+		View& view = this->view_list[i];
+		view.track_init();
+	}
 
+	this->track_list.clear();
+
+	for (int i = 0; i < this->matching_result.size(); i++)
+	{
+		TwoViewMatching const& tvm = matching_result[i];
+		View& view1 = view_list[tvm.view_id1];
+		View& view2 = view_list[tvm.view_id2];
+
+		for (int j = 0; j < tvm.matches.size(); j++)
+		{
+			CorrespondenceIndex idx = tvm.matches[j];
+
+			int const view1_track_id = view1.track_ids[idx.first];
+			int const view2_track_id = view2.track_ids[idx.second];
+			if (view1_track_id == -1 && view2_track_id == -1)
+			{
+				view1.track_ids[idx.first] = this->track_list.size();
+				view2.track_ids[idx.second] = this->track_list.size();
+				this->track_list.push_back(Track());
+				this->track_list.back().feature_list.push_back(Feature(tvm.view_id1, idx.first));
+				this->track_list.back().feature_list.push_back(Feature(tvm.view_id2, idx.second));
+			}
+			else if (view1_track_id == -1 && view2_track_id != -1)
+			{
+				view1.track_ids[idx.first] = view2_track_id;
+				this->track_list[view2_track_id].feature_list.push_back(Feature(tvm.view_id1, idx.first));
+			}
+			else if (view1_track_id != -1 && view2_track_id == -1)
+			{
+				view2.track_ids[idx.second] = view1_track_id;
+				this->track_list[view1_track_id].feature_list.push_back(Feature(tvm.view_id2, idx.second));
+			}
+			else if (view1_track_id == view2_track_id)
+			{
+				//std::cout << "123";
+			}
+			else
+			{
+				unify_tracks(view1_track_id, view2_track_id);
+				std::cout << view1_track_id << " " << view2_track_id << std::endl;
+			}
+		}
+	}
 }
 
 void Scene::two_view_matching(View const & m_view1, View const & m_view2)
@@ -187,6 +235,26 @@ void Scene::two_view_matching(View const & m_view1, View const & m_view2)
 	this->matching_result.push_back(match_result);
 }
 
+void Scene::unify_tracks(int view1_track_id, int view2_track_id)
+{
+	if (track_list[view1_track_id].feature_list.size()
+		< track_list[view2_track_id].feature_list.size())
+		std::swap(view1_track_id, view2_track_id);
+
+	Track& track1 = track_list[view1_track_id];
+	Track& track2 = track_list[view2_track_id];
+
+	for (size_t i = 0; i < track2.feature_list.size(); i++)
+	{
+		int const view_id = track2.feature_list[i].view_id;
+		int const feature_id = track2.feature_list[i].feature_id;
+		this->view_list[view_id].track_ids[feature_id] = view1_track_id;
+	}
+	track1.feature_list.insert(track1.feature_list.end(),
+		track2.feature_list.begin(), track2.feature_list.end());
+	track2.feature_list = FeatureList();
+}
+
 void View::init()
 {
 	cv::Mat mat = cv::imread(this->image_proxy.img_path);
@@ -233,6 +301,11 @@ void View::detect_features(std::string const& m_features_dir)
 void View::clean()
 {
 	this->image_proxy.image = nullptr;
+}
+
+void View::track_init()
+{
+	this->track_ids.resize(this->keypoints.size(), -1);
 }
 
 cv::Mat const & View::get_descriptor() const
