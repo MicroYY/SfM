@@ -12,6 +12,8 @@
 #include <Eigen/Eigen>
 #include <opencv2/core/eigen.hpp>
 
+//#include "init_pair.h"
+#include "correspondence.h"
 
 class View;
 
@@ -34,9 +36,10 @@ public:
 
 	void generate_track();
 
+	void compute_init_pair();
 
-	typedef std::pair<int, int> CorrespondenceIndex;
-	typedef std::vector<CorrespondenceIndex> CorrespondenceIndices;
+	typedef std::vector<View> ViewList;
+
 	struct TwoViewMatching
 	{
 		int view_id1;
@@ -61,19 +64,30 @@ public:
 	};
 	typedef std::vector<Track> TrackList;
 
+
+public:
+	ViewList& get_view_list();
+	ViewList const& get_view_list() const;
+	/*PairwiseMatching& get_matching();
+	PairwiseMatching const& get_matching() const;*/
+	TrackList& get_track_list();
+	TrackList const& get_track_list() const;
+
 private:
-	void two_view_matching(View const& m_view1, View const& m_view2);
+	void two_view_matching(int const m_view1_id, int const m_view2_id);
 
 	void unify_tracks(int view1_track_id, int view2_track_id);
 
 private:
 	std::string base_dir;
 	std::string features_dir;
-	std::vector<View> view_list;
+	ViewList view_list;
 
 	PairwiseMatching matching_result;
 
 	TrackList track_list;
+
+	//InitPair initial_pair;
 };
 
 
@@ -110,6 +124,7 @@ public:
 
 	void track_init();
 
+public:
 	cv::Mat const& get_descriptor() const;
 	cv::Mat get_descriptor();
 	Keypoints const& get_keypoints() const;

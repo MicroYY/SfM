@@ -147,10 +147,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="init_pair.cpp" />
     <ClCompile Include="scene.cpp" />
     <ClCompile Include="SfM.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="camera_pose.h" />
+    <ClInclude Include="correspondence.h" />
+    <ClInclude Include="init_pair.h" />
     <ClInclude Include="scene.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>

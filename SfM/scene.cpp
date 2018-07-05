@@ -11,6 +11,8 @@ void Scene::init()
 	if (this->base_dir == "")
 		throw std::exception("invalid dir");
 
+	std::cout << "Initializing scene..." << std::endl;
+
 	WIN32_FIND_DATA data;
 	HANDLE hf = FindFirstFile((this->base_dir + "\\*").c_str(), &data);
 	int i = 0;
@@ -29,6 +31,7 @@ void Scene::init()
 			View single_view(this->base_dir, img_path, i);
 			single_view.init();
 			this->view_list.push_back(single_view);
+			std::cout << "View " << i << " initialized!" << std::endl;
 			i++;
 		}
 
@@ -36,25 +39,29 @@ void Scene::init()
 
 	CreateDirectory(features_dir.c_str(), NULL);
 
+	std::cout << std::endl;
 }
 
 
 
 void Scene::detect_and_match()
 {
+	std::cout << "Detecting features..." << std::endl;
 	for (int i = 0; i < this->view_list.size(); i++)
 	{
+		std::cout << "Detecting features of view " << i << std::endl;
 		view_list[i].detect_features(features_dir);
 		//view_list[i].clean();
 	}
-
-	for (int i = 0; i < this->view_list.size() - 1; i++)
+	std::cout << std::endl;
+	std::cout << "Matching feature..." << std::endl;
+	for (int view1_id = 0; view1_id < this->view_list.size() - 1; view1_id++)
 	{
-		View& view1 = view_list[i];
-		for (int j = i + 1; j < this->view_list.size(); j++)
+		for (int view2_id = view1_id + 1; view2_id < this->view_list.size(); view2_id++)
 		{
-			View& view2 = view_list[j];
-			two_view_matching(view1, view2);
+			//std::cout << "Matching view " << view1_id << " and " << view2_id << "..." << std::endl;
+			two_view_matching(view1_id, view2_id);
+			//std::cout << std::endl;
 		}
 	}
 }
@@ -112,19 +119,56 @@ void Scene::generate_track()
 			else
 			{
 				unify_tracks(view1_track_id, view2_track_id);
-				std::cout << view1_track_id << " " << view2_track_id << std::endl;
+				//std::cout << view1_track_id << " " << view2_track_id << std::endl;
 			}
 		}
 	}
 }
 
-void Scene::two_view_matching(View const & m_view1, View const & m_view2)
+//void Scene::compute_init_pair()
+//{
+//	this->initial_pair.initialize();
+//}
+
+Scene::ViewList & Scene::get_view_list()
 {
+	return this->view_list;
+}
+
+Scene::ViewList const & Scene::get_view_list() const
+{
+	return this->view_list;
+}
+
+Scene::TrackList & Scene::get_track_list()
+{
+	return this->track_list;
+}
+
+Scene::TrackList const & Scene::get_track_list() const
+{
+	return this->track_list;
+}
+
+//Scene::PairwiseMatching & Scene::get_matching()
+//{
+//	return this->matching_result;
+//}
+//
+//Scene::PairwiseMatching const & Scene::get_matching() const
+//{
+//	return this->matching_result;
+//}
+
+void Scene::two_view_matching(int const m_view1_id, int const m_view2_id)
+{
+	View const& view1 = view_list[m_view1_id];
+	View const& view2 = view_list[m_view2_id];
 	cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create("FlannBased");
-	const cv::Mat& descriptor1 = m_view1.get_descriptor();
-	const cv::Mat& descriptor2 = m_view2.get_descriptor();
-	const View::Keypoints& keypoints1 = m_view1.get_keypoints();
-	const View::Keypoints& keypoints2 = m_view2.get_keypoints();
+	const cv::Mat& descriptor1 = view1.get_descriptor();
+	const cv::Mat& descriptor2 = view2.get_descriptor();
+	const View::Keypoints& keypoints1 = view1.get_keypoints();
+	const View::Keypoints& keypoints2 = view2.get_keypoints();
 
 	std::vector<std::vector<cv::DMatch>> matches_1_2;
 	matcher->knnMatch(descriptor1, descriptor2, matches_1_2, 2);
@@ -193,7 +237,13 @@ void Scene::two_view_matching(View const & m_view1, View const & m_view2)
 	}
 
 	if (two_way_matches_1_2.size() < 24)
+	{
+		std::cout << "Pair (" << m_view1_id << "," << m_view2_id 
+			<< ") rejected! matches below threshold of 24." << std::endl;
+		//std::cout << "Too few matches!" << " View " << m_view1_id << " and " << m_view2_id << " rejected!" << std::endl;
 		return;
+	}
+
 
 	std::vector<cv::DMatch> ransac_matches;
 	std::vector<cv::Point2f> points1;
@@ -211,20 +261,25 @@ void Scene::two_view_matching(View const & m_view1, View const & m_view2)
 			ransac_matches.push_back(two_way_matches_1_2[i]);
 	}
 
-	if (ransac_matches.size() < 12)
+	if (ransac_matches.size() < 15)
+	{
+		std::cout << "Pair (" << m_view1_id << "," << m_view2_id 
+			<< ") rejected! inliers below threshold of 15." << std::endl;
+		//std::cout << "Too few matches!" << " View " << m_view1_id << " and " << m_view2_id << " rejected!" << std::endl;
 		return;
+	}
 
 	cv::Mat match_result_img;
-	const View::ImagePtr& img1 = m_view1.get_image();
-	const View::ImagePtr& img2 = m_view2.get_image();
+	const View::ImagePtr& img1 = view1.get_image();
+	const View::ImagePtr& img2 = view2.get_image();
 	cv::drawMatches(*img1, keypoints1, *img2, keypoints2, ransac_matches, match_result_img);
-	std::string result_path = this->features_dir + "\\" + std::to_string(m_view1.get_view_id())
-		+ "with" + std::to_string(m_view2.get_view_id()) + ".jpg";
+	std::string result_path = this->features_dir + "\\" + std::to_string(m_view1_id)
+		+ "-" + std::to_string(m_view2_id) + ".jpg";
 	cv::imwrite(result_path, match_result_img);
 
 	TwoViewMatching match_result;
-	match_result.view_id1 = m_view1.get_view_id();
-	match_result.view_id2 = m_view2.get_view_id();
+	match_result.view_id1 = m_view1_id;
+	match_result.view_id2 = m_view2_id;
 	for (int i = 0; i < ransac_matches.size(); i++)
 	{
 		CorrespondenceIndex pair;
@@ -233,6 +288,10 @@ void Scene::two_view_matching(View const & m_view1, View const & m_view2)
 		match_result.matches.push_back(pair);
 	}
 	this->matching_result.push_back(match_result);
+	//std::cout << "View " << m_view1_id << " and " << m_view2_id << ": " 
+	//	<< ransac_matches.size() << " matches found!" << std::endl;
+	std::cout << "Pair (" << m_view1_id << "," << m_view2_id << ") matched! " 
+		<< ransac_matches.size() << " inliers!" << std::endl;
 }
 
 void Scene::unify_tracks(int view1_track_id, int view2_track_id)
@@ -294,7 +353,7 @@ void View::detect_features(std::string const& m_features_dir)
 		cv::circle(*this->image_proxy.image, cv::Point(var.pt.x, var.pt.y), 2, cv::Scalar(255, 0, 0));
 	}
 	std::string str = m_features_dir + "\\" + std::to_string(this->view_id) + ".jpg";
-	cv::imwrite(str, *this->image_proxy.image);
+	//cv::imwrite(str, *this->image_proxy.image);
 
 }
 

@@ -21,12 +21,24 @@
     <ClCompile Include="scene.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="init_pair.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="scene.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="utils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="camera_pose.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="init_pair.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="correspondence.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
