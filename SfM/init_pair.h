@@ -22,6 +22,12 @@ private:
 		int view1_id;
 		int view2_id;
 		Correspondences2D2D matches;
+
+		bool operator<(CandidatePair const& other) const
+		{
+			return this->matches.size() < other.matches.size();
+		}
+	
 	};
 	typedef std::vector<CandidatePair> CandidatePairs;
 
@@ -32,6 +38,12 @@ public:
 
 private:
 	void init_candidate(CandidatePairs* candidates);
+
+	bool compute_pose(CandidatePair const& candidate,std::vector<cv::Point2f> points1, 
+		std::vector<cv::Point2f> points2, 
+		CameraPose* pose1, CameraPose* pose2);
+
+	double angle_between_poses(CandidatePair const& candidate, CameraPose const& pose1, CameraPose const& pose2);
 
 private:
 	Scene::ViewList const* view_list;

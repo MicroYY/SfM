@@ -4,8 +4,10 @@
 
 struct Correspondence2D2D
 {
-	double p1[2];
-	double p2[2];
+	//double p1[2];
+	//double p2[2];
+	cv::Point2f point1;
+	cv::Point2f point2;
 };
 
 typedef std::vector<Correspondence2D2D> Correspondences2D2D;

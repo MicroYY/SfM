@@ -64,6 +64,7 @@ void Scene::detect_and_match()
 			//std::cout << std::endl;
 		}
 	}
+	std::cout << std::endl;
 }
 
 void Scene::clean()
@@ -253,11 +254,11 @@ void Scene::two_view_matching(int const m_view1_id, int const m_view2_id)
 		points1.push_back(keypoints1[two_way_matches_1_2[i].queryIdx].pt);
 		points2.push_back(keypoints2[two_way_matches_1_2[i].trainIdx].pt);
 	}
-	std::vector<uchar> inliersMask(points1.size());
-	cv::findFundamentalMat(points1, points2, inliersMask, CV_FM_RANSAC);
-	for (int i = 0; i < inliersMask.size(); i++)
+	std::vector<uchar> inliers_mask(points1.size());
+	cv::findFundamentalMat(points1, points2, inliers_mask, CV_FM_RANSAC,0.5);
+	for (int i = 0; i < inliers_mask.size(); i++)
 	{
-		if (inliersMask[i])
+		if (inliers_mask[i])
 			ransac_matches.push_back(two_way_matches_1_2[i]);
 	}
 
