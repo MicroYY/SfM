@@ -1,4 +1,5 @@
 #include "init_pair.h"
+#include "utils.h"
 
 #include <cmath>
 
@@ -36,8 +37,8 @@ void InitPair::compute_pair()
 		CandidatePair const& candidate = candidates[i];
 		size_t num_matches = candidate.matches.size();
 
+		//匹配点太少
 		int const min_num_matches = 50;
-
 		if (num_matches < min_num_matches)
 		{
 			std::cout << "Candidate pair (" << candidate.view1_id << "," << candidate.view2_id
@@ -53,6 +54,7 @@ void InitPair::compute_pair()
 			view2_points.push_back(candidate.matches[i].point2);
 		}
 
+		//单应内点太多
 		std::vector<uchar> inliers_mask;
 		cv::findHomography(view1_points, view2_points, inliers_mask, CV_RANSAC);
 		int num_inliers = 0;
@@ -70,6 +72,7 @@ void InitPair::compute_pair()
 			continue;
 		}
 
+		//角度不好
 		CameraPose pose1;
 		CameraPose pose2;
 		bool const found_pose = compute_pose(candidate, view1_points, view2_points, &pose1, &pose2);
@@ -77,6 +80,43 @@ void InitPair::compute_pair()
 		{
 			continue;
 		}
+
+		double const angle = angle_between_poses(candidate, pose1, pose2);
+		std::cout << angle << std::endl;
+		if (angle < MATH_DEG2RAD(5.0))
+		{
+			continue;
+		}
+
+		std::cout << pose1.R << std::endl;
+		std::cout << pose1.t << std::endl;
+		std::cout << pose2.R << std::endl;
+		std::cout << pose2.t << std::endl;
+
+		//三角化
+		cv::Mat_<double> T1(3, 4);
+		T1(0, 0) = pose1.R(0, 0); T1(0, 1) = pose1.R(0, 1); T1(0, 2) = pose1.R(0, 2); T1(0, 3) = pose1.t(0, 0);
+		T1(1, 0) = pose1.R(1, 0); T1(1, 1) = pose1.R(1, 1); T1(1, 2) = pose1.R(1, 2); T1(1, 3) = pose1.t(1, 0);
+		T1(2, 0) = pose1.R(2, 0); T1(2, 1) = pose1.R(2, 1); T1(2, 2) = pose1.R(2, 2); T1(2, 3) = pose1.t(2, 0);
+		std::cout << T1 << std::endl;
+		cv::Mat_<double> T2(3, 4);
+		T2(0, 0) = pose2.R(0, 0); T2(0, 1) = pose2.R(0, 1); T2(0, 2) = pose2.R(0, 2); T2(0, 3) = pose2.t(0, 0);
+		T2(1, 0) = pose2.R(1, 0); T2(1, 1) = pose2.R(1, 1); T2(1, 2) = pose2.R(1, 2); T2(1, 3) = pose2.t(1, 0);
+		T2(2, 0) = pose2.R(2, 0); T2(2, 1) = pose2.R(2, 1); T2(2, 2) = pose2.R(2, 2); T2(2, 3) = pose2.t(2, 0);
+		std::cout << T2 << std::endl;
+		cv::Mat_<float> points_3D(4, view1_points.size());
+
+		cv::triangulatePoints(T1, T2, view1_points, view2_points, points_3D);
+		std::cout << points_3D << std::endl;
+		for (size_t j = 0; j < view1_points.size(); j++)
+		{
+			points_3D(0, j) /= points_3D(3, j);
+			points_3D(1, j) /= points_3D(3, j);
+			points_3D(2, j) /= points_3D(3, j);
+			points_3D(3, j) = 1;
+		}
+		std::cout << candidate.view1_id << " " << candidate.view2_id << std::endl;
+		std::cout << points_3D << std::endl;
 	}
 }
 
@@ -143,8 +183,8 @@ bool InitPair::compute_pose(CandidatePair const& candidate, std::vector<cv::Poin
 		<< candidate.view2_id << ")" << " Fundamental: " << std::endl;
 	std::cout << fundamental << std::endl << std::endl;
 
-	pose1->init_K(4.0, 0.0, 0.0);
-	pose2->init_K(4.0, 0.0, 0.0);
+	pose1->init_K(0.771428, 0.0, 0.0);
+	pose2->init_K(0.771428, 0.0, 0.0);
 	pose1->init_R_t();
 
 	//std::cout << pose1->K << std::endl;
@@ -157,23 +197,69 @@ bool InitPair::compute_pose(CandidatePair const& candidate, std::vector<cv::Poin
 
 	cv::Mat_<double> e2 = cv::findEssentialMat(points1, points2, pose1->K, cv::RANSAC);
 	//std::cout << e2 << std::endl;
-	//cv::Mat_<double> e3 = cv::findEssentialMat(points1, points2, pose1->K, cv::LMEDS);
+	cv::Mat_<double> e3 = cv::findEssentialMat(points1, points2, pose1->K, cv::LMEDS);
 	//std::cout << e3 << std::endl;
 
-	cv::recoverPose(essential, points1, points2, pose2->K, pose2->R, pose2->t);
+	int num_liers = cv::recoverPose(e3, points1, points2, pose2->K, pose2->R, pose2->t);
+	if (num_liers == 0)
+		return false;
+	std::cout << "Pose2 R:" << std::endl;
 	std::cout << pose2->R << std::endl;
+	std::cout << "Pose2 t:" << std::endl;
 	std::cout << pose2->t << std::endl;
 
-	cv::Mat_<double> R(3, 3);
-	cv::Mat_<double> t(3, 1);
-	int num_inliers = cv::recoverPose(e2, points1, points2, pose2->K, R, t);
-	if (num_inliers == 0)
-		return false;
-	std::cout << R << std::endl;
-	std::cout << t << std::endl;
+	//cv::Mat_<double> R(3, 3);
+	//cv::Mat_<double> t(3, 1);
+	//int num_inliers = cv::recoverPose(e2, points1, points2, pose2->K, R, t);
+	//if (num_inliers == 0)
+	//	return false;
+	//std::cout << R << std::endl;
+	//std::cout << t << std::endl;
 }
 
 double InitPair::angle_between_poses(CandidatePair const & candidate, CameraPose const & pose1, CameraPose const & pose2)
 {
-	cv::Mat_<double>(3,3) 
+	cv::Mat_<double> transposed_R(3, 3);
+	cv::transpose(pose1.R, transposed_R);
+	cv::Mat_<double> inversed_K(3, 3);
+	cv::invert(pose1.K, inversed_K);
+	cv::Mat_<double> T1(3, 3);
+	T1 = transposed_R * inversed_K;
+
+	cv::transpose(pose2.R, transposed_R);
+	cv::invert(pose2.K, inversed_K);
+	cv::Mat_<double> T2(3, 3);
+	T2 = transposed_R * inversed_K;
+
+	std::vector<double> cos_angles;
+	cos_angles.reserve(candidate.matches.size());
+
+	for (size_t i = 0; i < candidate.matches.size(); i++)
+	{
+		Correspondence2D2D const& match = candidate.matches[i];
+		cv::Mat_<double> p1(3, 1);
+		p1(0, 0) = match.point1.x;
+		p1(1, 0) = match.point1.y;
+		p1(2, 0) = 1.;
+		p1 = T1 * p1;
+		//std::cout << p1 << std::endl;
+		cv::normalize(p1, p1, 1.0, cv::NORM_L2);
+		//std::cout << p1 << std::endl;
+
+		cv::Mat_<double> p2(3, 1);
+		p2(0, 0) = match.point2.x;
+		p2(1, 0) = match.point2.y;
+		p2(2, 0) = 1.;
+		p2 = T2 * p2;
+		//std::cout << p2 << std::endl;
+		cv::normalize(p2, p2, 1.0, cv::NORM_L2);
+		//std::cout << p2 << std::endl;
+		cos_angles.push_back(p1.dot(p2));
+	}
+
+	std::size_t median_index = cos_angles.size() / 2;
+	std::nth_element(cos_angles.begin(),
+		cos_angles.begin() + median_index, cos_angles.end());
+	double const cos_angle = clamp(cos_angles[median_index], -1.0, 1.0);
+	return std::acos(cos_angle);
 }
