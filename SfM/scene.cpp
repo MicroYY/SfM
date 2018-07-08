@@ -255,7 +255,7 @@ void Scene::two_view_matching(int const m_view1_id, int const m_view2_id)
 		points2.push_back(keypoints2[two_way_matches_1_2[i].trainIdx].pt);
 	}
 	std::vector<uchar> inliers_mask(points1.size());
-	cv::findFundamentalMat(points1, points2, inliers_mask, CV_FM_RANSAC,0.5);
+	cv::findFundamentalMat(points1, points2, inliers_mask, CV_FM_RANSAC,0.5,0.99999);
 	for (int i = 0; i < inliers_mask.size(); i++)
 	{
 		if (inliers_mask[i])

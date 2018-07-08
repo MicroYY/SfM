@@ -183,11 +183,26 @@ bool InitPair::compute_pose(CandidatePair const& candidate, std::vector<cv::Poin
 		<< candidate.view2_id << ")" << " Fundamental: " << std::endl;
 	std::cout << fundamental << std::endl << std::endl;
 
-	pose1->init_K(0.771428, 0.0, 0.0);
-	pose2->init_K(0.771428, 0.0, 0.0);
+	cv::Mat_<double> f2 = cv::findFundamentalMat(points1, points2, CV_FM_8POINT);
+	//std::cout << f2 << std::endl;
+	cv::Mat_<double> f3 = cv::findFundamentalMat(points1, points2, CV_FM_RANSAC);
+	//std::cout << f3 << std::endl;
+
+	for (size_t i = 0; i < points1.size(); i++)
+	{
+		cv::Mat_<double> x2(1, 3);
+		x2(0, 0) = points2[i].x; x2(0, 1) = points2[i].y; x2(0, 2) = 1.0;
+		cv::Mat_<double> x1(3, 1);
+		x1(0, 0) = points1[i].x; x1(1, 0) = points1[i].y; x1(2, 0) = 1.0;
+		cv::Mat_<double> error = x2 * fundamental * x1;
+		std::cout << error << std::endl;
+	}
+
+	pose1->init_K(3189.9521273811997, 1508., 2016.);
+	pose2->init_K(3189.9521273811997, 1508., 2016.);
 	pose1->init_R_t();
 
-	//std::cout << pose1->K << std::endl;
+
 	cv::Mat_<double> essential;
 	cv::transpose(pose2->K, essential);
 	//std::cout << essential << std::endl;
@@ -198,9 +213,28 @@ bool InitPair::compute_pose(CandidatePair const& candidate, std::vector<cv::Poin
 	cv::Mat_<double> e2 = cv::findEssentialMat(points1, points2, pose1->K, cv::RANSAC);
 	//std::cout << e2 << std::endl;
 	cv::Mat_<double> e3 = cv::findEssentialMat(points1, points2, pose1->K, cv::LMEDS);
-	//std::cout << e3 << std::endl;
+	std::cout << "Essential2 " << std::endl;
+	std::cout << e3 << std::endl;
 
 	int num_liers = cv::recoverPose(e3, points1, points2, pose2->K, pose2->R, pose2->t);
+
+	cv::Mat_<double> t_(3, 3);
+	t_(0, 0) = 0.0; t_(0, 1) = -pose2->t(2, 0); t_(0, 2) = pose2->t(1, 0);
+	t_(1, 0) = pose2->t(2, 0); t_(1, 1) = 0.0; t_(1, 2) = -pose2->t(0, 0);
+	t_(2, 0) = -pose2->t(1, 0); t_(2, 1) = pose2->t(0, 0); t_(2, 2) = 0.0;
+	std::cout << "t^ R:" << std::endl;
+	std::cout << t_ * pose2->R << std::endl;
+
+	for (size_t i = 0; i < points1.size(); i++)
+	{
+		cv::Mat_<double> x2(3, 1);
+		x2(0, 0) = points2[i].x; x2(1, 0) = points2[i].y; x2(2, 0) = 1.0;
+		cv::Mat_<double> x1(3, 1);
+		x1(0, 0) = points1[i].x; x1(1, 0) = points1[i].y; x1(2, 0) = 1.0;
+		cv::Mat_<double> error = x2.t() * pose2->K.t().inv() * t_ * pose2->R * pose2->K.inv() * x1;
+		std::cout << error << std::endl;
+	}
+
 	if (num_liers == 0)
 		return false;
 	std::cout << "Pose2 R:" << std::endl;
