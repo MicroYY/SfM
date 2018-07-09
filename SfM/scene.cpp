@@ -408,3 +408,10 @@ int const & View::get_view_id() const
 	return view_id;
 }
 
+void View::set_pose(CameraPose const& m_pose)
+{
+	this->pose = m_pose;
+}
+
+
+

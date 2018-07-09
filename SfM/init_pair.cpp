@@ -11,14 +11,14 @@ void InitPair::initialize(Scene::ViewList const & m_view_list, Scene::TrackList 
 	this->track_list = &m_track_list;
 }
 
-void InitPair::compute_pair()
+void InitPair::compute_pair(Result& result)
 {
 	if (this->track_list == nullptr || this->view_list == nullptr)
 		throw std::invalid_argument("Null views or tracks");
 
 	std::cout << "Searching for initial pair..." << std::endl;
-	this->init_pair_result.view1_id = -1;
-	this->init_pair_result.view2_id = -1;
+	result.view1_id = -1;
+	result.view2_id = -1;
 
 	std::cout << "Initializing candidate pairs..." << std::endl;
 	CandidatePairs candidates;
@@ -28,6 +28,7 @@ void InitPair::compute_pair()
 
 	bool found_pair = false;
 	size_t found_pair_id = std::numeric_limits<size_t>::max();
+	std::vector<float> pair_scores(candidates.size(), 0.0f);
 
 	for (size_t i = 0; i < candidates.size(); i++)
 	{
@@ -48,19 +49,19 @@ void InitPair::compute_pair()
 
 		std::vector<cv::Point2f> view1_points;
 		std::vector<cv::Point2f> view2_points;
-		for (size_t i = 0; i < candidate.matches.size(); i++)
+		for (size_t j = 0; j < candidate.matches.size(); j++)
 		{
-			view1_points.push_back(candidate.matches[i].point1);
-			view2_points.push_back(candidate.matches[i].point2);
+			view1_points.push_back(candidate.matches[j].point1);
+			view2_points.push_back(candidate.matches[j].point2);
 		}
 
 		//单应内点太多
 		std::vector<uchar> inliers_mask;
 		cv::findHomography(view1_points, view2_points, inliers_mask, CV_RANSAC);
 		int num_inliers = 0;
-		for (size_t i = 0; i < inliers_mask.size(); i++)
+		for (size_t j = 0; j < inliers_mask.size(); j++)
 		{
-			if (inliers_mask[i])
+			if (inliers_mask[j])
 				num_inliers++;
 		}
 		float inliers_percentage = static_cast<float>(num_inliers) / num_matches;
@@ -82,17 +83,14 @@ void InitPair::compute_pair()
 		}
 
 		double const angle = angle_between_poses(candidate, pose1, pose2);
+		//pair_scores[i] = score_for_pair(candidate, num_inliers, angle);
 		std::cout << angle << std::endl;
 		if (angle < MATH_DEG2RAD(5.0))
 		{
 			continue;
 		}
 
-		std::cout << pose1.R << std::endl;
-		std::cout << pose1.t << std::endl;
-		std::cout << pose2.R << std::endl;
-		std::cout << pose2.t << std::endl;
-
+		/*
 		//三角化
 		cv::Mat_<double> T1(3, 4);
 		T1(0, 0) = pose1.R(0, 0); T1(0, 1) = pose1.R(0, 1); T1(0, 2) = pose1.R(0, 2); T1(0, 3) = pose1.t(0, 0);
@@ -117,6 +115,17 @@ void InitPair::compute_pair()
 		}
 		std::cout << candidate.view1_id << " " << candidate.view2_id << std::endl;
 		std::cout << points_3D << std::endl;
+		*/
+
+		if (i < found_pair_id)
+		{
+			result.view1_id = candidate.view1_id;
+			result.view2_id = candidate.view2_id;
+			result.camera1_pose = pose1;
+			result.camera2_pose = pose2;
+			found_pair_id = i;
+			found_pair = true;
+		}
 	}
 }
 
@@ -296,4 +305,20 @@ double InitPair::angle_between_poses(CandidatePair const & candidate, CameraPose
 		cos_angles.begin() + median_index, cos_angles.end());
 	double const cos_angle = clamp(cos_angles[median_index], -1.0, 1.0);
 	return std::acos(cos_angle);
+}
+
+float InitPair::score_for_pair(CandidatePair const & candidate, int num_inliers, double angle)
+{
+	float const matches = static_cast<float>(candidate.matches.size());
+	float const inliers = static_cast<float>(num_inliers) / matches;
+	float const angle_deg = MATH_RAD2DEG(angle);
+
+	float f1 = 2.0 / (1.0 + std::exp((20.0 - matches) * 6.0 / 200.0)) - 1.0;
+	float f2 = 2.0 / (1.0 + std::exp((1.0 - angle_deg) * 6.0 / 8.0)) - 1.0;
+	float f3 = 2.0 / (1.0 + std::exp((inliers - 0.7) * 6.0 / 0.4)) - 1.0;
+
+	f1 = clamp(f1, 0.0f, 1.0f);
+	f2 = clamp(f2, 0.0f, 1.0f);
+	f3 = clamp(f3, 0.0f, 1.0f);
+	return f1 * f2 * f3;
 }

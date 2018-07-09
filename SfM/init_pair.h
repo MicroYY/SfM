@@ -7,7 +7,7 @@
 class InitPair
 {
 
-
+public:
 	struct Result
 	{
 		int view1_id;
@@ -34,7 +34,7 @@ private:
 public:
 	void initialize(Scene::ViewList const& m_view_list,Scene::TrackList const& m_track_list);
 
-	void compute_pair();
+	void compute_pair(Result& result);
 
 private:
 	void init_candidate(CandidatePairs* candidates);
@@ -45,9 +45,10 @@ private:
 
 	double angle_between_poses(CandidatePair const& candidate, CameraPose const& pose1, CameraPose const& pose2);
 
+	float score_for_pair(CandidatePair const& candidate, int num_inliers, double angle);
 private:
 	Scene::ViewList const* view_list;
 	Scene::TrackList const* track_list;
 
-	Result init_pair_result;
+	//Result init_pair_result;
 };

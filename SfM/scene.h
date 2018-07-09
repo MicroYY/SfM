@@ -14,6 +14,7 @@
 
 //#include "init_pair.h"
 #include "correspondence.h"
+#include "camera_pose.h"
 
 class View;
 
@@ -114,8 +115,6 @@ public:
 		:view_id(m_view_id), base_dir(m_base_dir), image_proxy(m_img_path)
 	{}
 
-	void set_img_path();
-
 	void init();
 
 	void detect_features(std::string const& m_features_dir);
@@ -135,6 +134,8 @@ public:
 	int get_view_id();
 	int const& get_view_id() const;
 
+	void set_pose(CameraPose const& m_pose);
+
 public:
 	std::vector<int> track_ids;
 private:
@@ -146,6 +147,7 @@ private:
 	cv::Mat descriptor;
 	Keypoints keypoints;
 
+	CameraPose pose;
 
 };
 
