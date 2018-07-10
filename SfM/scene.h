@@ -61,6 +61,10 @@ public:
 
 	struct Track
 	{
+		bool is_valid() const;
+
+
+		bool valid = false;
 		FeatureList feature_list;
 	};
 	typedef std::vector<Track> TrackList;
@@ -79,6 +83,8 @@ private:
 
 	void unify_tracks(int view1_track_id, int view2_track_id);
 
+	int remove_invalid_tracks();
+
 private:
 	std::string base_dir;
 	std::string features_dir;
@@ -90,6 +96,8 @@ private:
 
 	//InitPair initial_pair;
 };
+
+
 
 
 class View
@@ -137,6 +145,7 @@ public:
 	void set_pose(CameraPose const& m_pose);
 
 public:
+	//存放该位置（特征点）出现过的track的索引
 	std::vector<int> track_ids;
 private:
 	int view_id;

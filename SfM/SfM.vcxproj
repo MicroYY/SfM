@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="incremental.cpp" />
     <ClCompile Include="init_pair.cpp" />
     <ClCompile Include="scene.cpp" />
     <ClCompile Include="SfM.cpp" />
@@ -154,6 +155,7 @@
   <ItemGroup>
     <ClInclude Include="camera_pose.h" />
     <ClInclude Include="correspondence.h" />
+    <ClInclude Include="incremental.h" />
     <ClInclude Include="init_pair.h" />
     <ClInclude Include="scene.h" />
     <ClInclude Include="utils.h" />

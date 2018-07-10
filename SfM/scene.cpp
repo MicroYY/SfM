@@ -124,6 +124,8 @@ void Scene::generate_track()
 			}
 		}
 	}
+	int num_invalid_tracks = this->remove_invalid_tracks();
+	std::cout << "Deleted " << num_invalid_tracks << " tracks." << std::endl;
 }
 
 //void Scene::compute_init_pair()
@@ -239,7 +241,7 @@ void Scene::two_view_matching(int const m_view1_id, int const m_view2_id)
 
 	if (two_way_matches_1_2.size() < 24)
 	{
-		std::cout << "Pair (" << m_view1_id << "," << m_view2_id 
+		std::cout << "Pair (" << m_view1_id << "," << m_view2_id
 			<< ") rejected! matches below threshold of 24." << std::endl;
 		//std::cout << "Too few matches!" << " View " << m_view1_id << " and " << m_view2_id << " rejected!" << std::endl;
 		return;
@@ -255,7 +257,7 @@ void Scene::two_view_matching(int const m_view1_id, int const m_view2_id)
 		points2.push_back(keypoints2[two_way_matches_1_2[i].trainIdx].pt);
 	}
 	std::vector<uchar> inliers_mask(points1.size());
-	cv::findFundamentalMat(points1, points2, inliers_mask, CV_FM_RANSAC,0.5,0.99999);
+	cv::findFundamentalMat(points1, points2, inliers_mask, CV_FM_RANSAC, 0.5, 0.99999);
 	for (int i = 0; i < inliers_mask.size(); i++)
 	{
 		if (inliers_mask[i])
@@ -264,7 +266,7 @@ void Scene::two_view_matching(int const m_view1_id, int const m_view2_id)
 
 	if (ransac_matches.size() < 15)
 	{
-		std::cout << "Pair (" << m_view1_id << "," << m_view2_id 
+		std::cout << "Pair (" << m_view1_id << "," << m_view2_id
 			<< ") rejected! inliers below threshold of 15." << std::endl;
 		//std::cout << "Too few matches!" << " View " << m_view1_id << " and " << m_view2_id << " rejected!" << std::endl;
 		return;
@@ -291,7 +293,7 @@ void Scene::two_view_matching(int const m_view1_id, int const m_view2_id)
 	this->matching_result.push_back(match_result);
 	//std::cout << "View " << m_view1_id << " and " << m_view2_id << ": " 
 	//	<< ransac_matches.size() << " matches found!" << std::endl;
-	std::cout << "Pair (" << m_view1_id << "," << m_view2_id << ") matched! " 
+	std::cout << "Pair (" << m_view1_id << "," << m_view2_id << ") matched! "
 		<< ransac_matches.size() << " inliers!" << std::endl;
 }
 
@@ -314,6 +316,65 @@ void Scene::unify_tracks(int view1_track_id, int view2_track_id)
 		track2.feature_list.begin(), track2.feature_list.end());
 	track2.feature_list = FeatureList();
 }
+
+int Scene::remove_invalid_tracks()
+{
+	std::vector<int> delete_tracks(this->track_list.size());
+	int num_invalid_tracks = 0;
+	for (size_t i = 0; i < this->track_list.size(); i++)
+	{
+		if (this->track_list[i].feature_list.empty())
+		{
+			delete_tracks[i] = 1;
+			continue;
+		}
+
+		std::set<int> view_ids;
+		for (size_t j = 0; j < this->track_list[i].feature_list.size(); j++)
+		{
+			Feature const& feature = this->track_list[i].feature_list[j];
+			//如果插入失败，说明该track包含同一张图片的两个特征点
+			//insert返回一个pair
+			if (view_ids.insert(feature.view_id).second == false)
+			{
+				num_invalid_tracks += 1;
+				delete_tracks[i] = 1;
+				break;
+			}
+		}
+	}
+
+	//旧track到新track的映射
+	std::vector<int> id_mapping(delete_tracks.size(), -1);
+	int valid_track_counter = 0;
+	for (size_t i = 0; i < delete_tracks.size(); i++)
+	{
+		if (delete_tracks[i])
+			continue;
+		//i 旧的track索引
+		//valid_track_counter 新的track索引
+		id_mapping[i] = valid_track_counter;
+		valid_track_counter++;
+	}
+
+	//调整每个视角的track_ids
+	for (size_t i = 0; i < this->view_list.size(); i++)
+	{
+		std::vector<int>& track_ids = this->view_list[i].track_ids;
+		for (size_t j = 0; j < track_ids.size(); j++)
+		{
+			//track_ids[j] 旧的track索引
+			//id_mapping[track_ids[j]] 新的track索引
+			if (track_ids[j] >= 0)
+				track_ids[j] = id_mapping[track_ids[j]];
+		}
+	}
+
+	vector_clean(delete_tracks, &this->track_list);
+
+	return num_invalid_tracks;
+}
+
 
 void View::init()
 {
