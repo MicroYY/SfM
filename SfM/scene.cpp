@@ -469,10 +469,17 @@ int const & View::get_view_id() const
 	return view_id;
 }
 
+CameraPose View::get_pose()
+{
+	return this->pose;
+}
+
+CameraPose const & View::get_pose() const
+{
+	return this->pose;
+}
+
 void View::set_pose(CameraPose const& m_pose)
 {
 	this->pose = m_pose;
 }
-
-
-

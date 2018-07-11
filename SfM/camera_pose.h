@@ -7,9 +7,16 @@ struct CameraPose
 public:
 	CameraPose() :K(3, 3), R(3, 3), t(3, 1)
 	{
-		/*this->K.zeros(3, 3);
-		this->R.ones(3, 3);
-		this->t.zeros(3, 1);*/
+		this->K(0, 0) = 0.; this->K(0, 1) = 0.; this->K(0, 2) = 0.;
+		this->K(1, 0) = 0.; this->K(1, 1) = 0.; this->K(1, 2) = 0.;
+		this->K(2, 0) = 0.; this->K(2, 1) = 0.; this->K(2, 2) = 0.;
+		this->R(0, 0) = 0.; this->R(0, 1) = 0.; this->R(0, 2) = 0.;
+		this->R(1, 0) = 0.; this->R(1, 1) = 0.; this->R(1, 2) = 0.;
+		this->R(2, 0) = 0.; this->R(2, 1) = 0.; this->R(2, 2) = 0.;
+		this->t(0, 0) = 0.; this->t(1, 0) = 0.; this->t(2, 0) = 0.;
+		//std::cout << this->K << std::endl;
+		//std::cout << this->R << std::endl;
+		//std::cout << this->t << std::endl;
 	}
 
 
@@ -17,6 +24,8 @@ public:
 	void init_K(double focial_length, double cx, double cy);
 
 	void init_R_t();
+
+	bool is_vaild() const;
 
 public:
 
@@ -61,4 +70,10 @@ CameraPose::init_R_t()
 	std::cout << R << std::endl;
 	std::cout << "Matrix t=" << std::endl;
 	std::cout << t << std::endl;
+}
+
+inline bool
+CameraPose::is_vaild() const
+{
+	return this->K(0, 0) != 0.;
 }

@@ -61,10 +61,17 @@ public:
 
 	struct Track
 	{
+		Track() :Point3D(3, 1) {}
+
 		bool is_valid() const;
 
+		void invalidate()
+		{
+			valid = false;
+		}
 
-		bool valid = false;
+		cv::Mat_<double> Point3D;
+		bool valid = true;
 		FeatureList feature_list;
 	};
 	typedef std::vector<Track> TrackList;
@@ -142,6 +149,9 @@ public:
 	int get_view_id();
 	int const& get_view_id() const;
 
+	CameraPose get_pose();
+	CameraPose const& get_pose() const;
+
 	void set_pose(CameraPose const& m_pose);
 
 public:
@@ -159,4 +169,3 @@ private:
 	CameraPose pose;
 
 };
-
